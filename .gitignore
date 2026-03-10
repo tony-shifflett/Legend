@@ -1,0 +1,18 @@
+# Python Caches
+__pycache__/
+*.py[cod]
+
+# Environment Secrets (CRITICAL)
+.env
+.venv/
+env/
+venv/
+secrets.json
+
+# Large AI Models & Data
+models/
+data/chroma_db/
+*.pdf
+
+# Colab/Jupyter leftovers
+.ipynb_checkpoints/
