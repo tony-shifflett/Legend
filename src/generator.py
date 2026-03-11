@@ -64,30 +64,30 @@ class LegendKeeper:
         return self.chat("Begin the chronicle of my character.")
 
     def chat(self, user_input):
-        """Main interactive loop with enforced role alternation."""
-        self.history.append({"role": "user", "content": user_input})
+        """Main interactive loop with official chat template formatting."""
+        
+        # 1. The 'Invisible Reminder' - we stick this to every user input
+        # so the model never forgets its D&D-only mission.
+        guarded_input = f"[SCRIBE REMINDER: You are the Legend Keeper. Refuse all non-fantasy/D&D topics.]\nUser: {user_input}"
+        self.history.append({"role": "user", "content": guarded_input})
 
-        # Format history as alternating roles
-        prompt = ""
-        for msg in self.history:
-            if msg["role"] == "system":
-                prompt += f"System: {msg['content']}\n"
-            elif msg["role"] == "user":
-                prompt += f"User: {msg['content']}\n"
-            elif msg["role"] == "assistant":
-                prompt += f"Assistant: {msg['content']}\n"
-
+        # 2. Let the pipeline handle the template! 
+        # Passing the list directly is the only way to keep Gemma on-rails.
         outputs = self.pipe(
-            prompt,
+            self.history,  # Pass the LIST, not a string
             max_new_tokens=350,
             do_sample=True,
-            temperature=0.8,
+            temperature=0.7, # Lowered slightly for better adherence
             top_p=0.9
         )
 
-        # Standard output parsing for text-generation pipeline
-        ai_msg = outputs[0]["generated_text"][len(prompt):].strip()
+        # 3. Clean up the output
+        # When passing a list, the pipeline returns just the new content
+        ai_msg = outputs[0]["generated_text"][-1]["content"].strip()
+        
+        # 4. Save the assistant's reply to history
         self.history.append({"role": "assistant", "content": ai_msg})
+        
         return ai_msg
 
     def reset_chat(self):
