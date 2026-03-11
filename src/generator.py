@@ -54,20 +54,30 @@ class LegendKeeper:
         return self.chat("Begin the chronicle of my character.")
 
     def chat(self, user_input):
-        """Main interactive loop with memory."""
+        """Main interactive loop with enforced role alternation."""
         self.history.append({"role": "user", "content": user_input})
 
+        # Format history as alternating roles
+        prompt = ""
+        for msg in self.history:
+            if msg["role"] == "system":
+                prompt += f"System: {msg['content']}\n"
+            elif msg["role"] == "user":
+                prompt += f"User: {msg['content']}\n"
+            elif msg["role"] == "assistant":
+                prompt += f"Assistant: {msg['content']}\n"
+
         outputs = self.pipe(
-            self.history, 
-            max_new_tokens=350, 
-            do_sample=True, 
+            prompt,
+            max_new_tokens=350,
+            do_sample=True,
             temperature=0.8,
             top_p=0.9
         )
-        
-        ai_msg = outputs[0]['generated_text'][-1]['content']
+
+        # Standard output parsing for text-generation pipeline
+        ai_msg = outputs[0]["generated_text"][len(prompt):].strip()
         self.history.append({"role": "assistant", "content": ai_msg})
-        
         return ai_msg
 
     def reset_chat(self):
