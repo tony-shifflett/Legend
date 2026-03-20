@@ -3,6 +3,7 @@ import yaml
 import os
 import re
 from transformers import pipeline, BitsAndBytesConfig  # <--- Essential Import
+from .librarian import LoreLibrarian
 
 class LegendKeeper:
     def __init__(self, model_id="google/gemma-3-4b-it"):
@@ -12,6 +13,7 @@ class LegendKeeper:
         self.config_path = os.path.join("configs", "prompts.yaml")
         self.config = self._load_config()
         self.history = []
+        self.librarian = LoreLibrarian()
         self.max_new_tokens = 350
         self.continuation_tokens = 120
         self.max_continuations = 2
@@ -45,6 +47,8 @@ class LegendKeeper:
         self.reset_chat()
 
         raw_prompt = self.config['personas']['backstory']
+        lore_query = vibe if vibe and vibe.strip() else name
+        lore_context = self.librarian.search(lore_query)
         # Strict guardrails: reinforce refusal to discuss anything but D&D
         guardrail_instructions = (
             "You are the Legend Keeper, a wise and mysterious storyteller. "
@@ -59,7 +63,8 @@ class LegendKeeper:
                 name=name,
                 char_class=char_class,
                 race=race,
-                vibe=vibe
+                vibe=vibe,
+                context=lore_context
             )
             + "\n" + guardrail_instructions
         )
