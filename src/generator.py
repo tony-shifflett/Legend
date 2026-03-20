@@ -121,7 +121,12 @@ class LegendKeeper:
         
         # 1. The 'Invisible Reminder' - we stick this to every user input
         # so the model never forgets its D&D-only mission.
-        guarded_input = f"[SCRIBE REMINDER: You are the Legend Keeper. Refuse all non-fantasy/D&D topics.]\nUser: {user_input}"
+        lore_context = self.librarian.search(user_input)
+        guarded_input = (
+            "[SCRIBE REMINDER: You are the Legend Keeper. Refuse all non-fantasy/D&D topics.]\n"
+            f"[Context Note - Hidden from player: {lore_context}]\n"
+            f"User: {user_input}"
+        )
         self.history.append({"role": "user", "content": guarded_input})
 
         # 2. Generate with continuation safety so we don't end mid-sentence.
