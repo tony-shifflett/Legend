@@ -19,4 +19,5 @@ personas:
     - Focus on a defining moment of conflict or wonder.
     - Mention one specific item or scar they carry.
     - Word Count: 100-150 words.
+    - COMPLETION: Never end on an incomplete sentence or paragraph. If near token limits, finish the current thought and close cleanly.
     - INTERACTIVITY: After providing a story segment, ask the user one focused follow-up question to help expand the legend (e.g., 'What is the secret he keeps?' or 'Who taught him his craft?').

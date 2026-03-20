@@ -1,6 +1,7 @@
 import torch
 import yaml
 import os
+import re
 from transformers import pipeline, BitsAndBytesConfig  # <--- Essential Import
 
 class LegendKeeper:
@@ -11,6 +12,9 @@ class LegendKeeper:
         self.config_path = os.path.join("configs", "prompts.yaml")
         self.config = self._load_config()
         self.history = []
+        self.max_new_tokens = 350
+        self.continuation_tokens = 120
+        self.max_continuations = 2
         
         # 2. Quantization Logic (The "Secret Sauce" for Colab)
         # This belongs here because it's part of the 'Engine' setup
@@ -63,6 +67,50 @@ class LegendKeeper:
         self.history.append({"role": "system", "content": system_content})
         return self.chat("Begin the chronicle of my character.")
 
+    def _extract_assistant_content(self, outputs):
+        """Safely extract assistant content from pipeline output."""
+        generated = outputs[0]["generated_text"]
+        if isinstance(generated, list) and generated:
+            last = generated[-1]
+            if isinstance(last, dict):
+                return last.get("content", "").strip()
+            return str(last).strip()
+        return str(generated).strip()
+
+    def _is_complete_response(self, text):
+        """Heuristic: response should end with sentence-closing punctuation and a non-empty paragraph."""
+        if not text or not text.strip():
+            return False
+
+        cleaned = text.strip()
+        paragraphs = [p.strip() for p in cleaned.split("\n\n") if p.strip()]
+        if not paragraphs:
+            return False
+
+        # Last paragraph should end cleanly.
+        return bool(re.search(r"[.!?…]['\")\]]*$", paragraphs[-1]))
+
+    def _trim_to_complete_boundary(self, text):
+        """Trim trailing fragment so output never ends mid-sentence or mid-paragraph."""
+        cleaned = text.strip()
+        if not cleaned:
+            return cleaned
+
+        # If already complete, keep as-is.
+        if self._is_complete_response(cleaned):
+            return cleaned
+
+        # Trim to last clear sentence boundary.
+        match = list(re.finditer(r"[.!?…]['\")\]]*(?:\s|$)", cleaned))
+        if match:
+            end_idx = match[-1].end()
+            trimmed = cleaned[:end_idx].rstrip()
+            if trimmed:
+                return trimmed
+
+        # Fallback: return original stripped text if no boundary found.
+        return cleaned
+
     def chat(self, user_input):
         """Main interactive loop with official chat template formatting."""
         
@@ -71,23 +119,48 @@ class LegendKeeper:
         guarded_input = f"[SCRIBE REMINDER: You are the Legend Keeper. Refuse all non-fantasy/D&D topics.]\nUser: {user_input}"
         self.history.append({"role": "user", "content": guarded_input})
 
-        # 2. Let the pipeline handle the template! 
-        # Passing the list directly is the only way to keep Gemma on-rails.
-        outputs = self.pipe(
-            self.history,  # Pass the LIST, not a string
-            max_new_tokens=350,
-            do_sample=True,
-            temperature=0.7, # Lowered slightly for better adherence
-            top_p=0.9
-        )
+        # 2. Generate with continuation safety so we don't end mid-sentence.
+        # Keep continuation turns in a temporary history to avoid polluting chat memory.
+        working_history = list(self.history)
+        assembled = ""
 
-        # 3. Clean up the output
-        # When passing a list, the pipeline returns just the new content
-        ai_msg = outputs[0]["generated_text"][-1]["content"].strip()
-        
+        for attempt in range(self.max_continuations + 1):
+            outputs = self.pipe(
+                working_history,
+                max_new_tokens=self.max_new_tokens if attempt == 0 else self.continuation_tokens,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9
+            )
+
+            chunk = self._extract_assistant_content(outputs)
+            if not chunk:
+                break
+
+            # Preserve natural spacing when stitching continuation chunks.
+            if assembled and not assembled.endswith((" ", "\n")) and not chunk.startswith((" ", "\n", ",", ".", ";", ":", "!", "?")):
+                assembled += " "
+            assembled += chunk
+
+            if self._is_complete_response(assembled):
+                break
+
+            working_history.append({"role": "assistant", "content": chunk})
+            working_history.append({
+                "role": "user",
+                "content": (
+                    "Continue from your exact last word. "
+                    "Do not repeat prior text. "
+                    "Finish any incomplete sentence and end on a complete paragraph."
+                )
+            })
+
+        # 3. Final cleanup: never leave a trailing sentence fragment.
+        ai_msg = self._trim_to_complete_boundary(assembled)
+
         # 4. Save the assistant's reply to history
         self.history.append({"role": "assistant", "content": ai_msg})
-        
+
         return ai_msg
 
     def reset_chat(self):
