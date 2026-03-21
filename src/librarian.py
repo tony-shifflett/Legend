@@ -6,11 +6,16 @@ from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunct
 
 
 class LoreLibrarian:
-    def __init__(self, db_path: str = "data/lore_db"):
-        base_dir = os.path.dirname(os.path.dirname(__file__))
-        persistent_path = os.path.join(base_dir, db_path)
+    def __init__(self, db_path: str = None):
+        # If no path is provided, use the relative repo path (for VS Code)
+        if db_path is None:
+            base_dir = os.path.dirname(os.path.dirname(__file__))
+            self.persistent_path = os.path.join(base_dir, "data/lore_db")
+        else:
+            # Use the explicit path provided (for Colab)
+            self.persistent_path = db_path
 
-        self.client = chromadb.PersistentClient(path=persistent_path)
+        self.client = chromadb.PersistentClient(path=self.persistent_path)
         self.embedding_function = SentenceTransformerEmbeddingFunction(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
