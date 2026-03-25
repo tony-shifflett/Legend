@@ -1,3 +1,5 @@
+```mermaid 
+
 graph TD
     subgraph "Persistent Storage (The Shelf)"
         A[(ChromaDB: './chroma_db')]
@@ -25,3 +27,5 @@ graph TD
 
     style D fill:#f9f,stroke:#333,stroke-width:2px
     style B fill:#bbf,stroke:#333,stroke-width:2px
+
+    ```
