@@ -122,8 +122,8 @@ class LegendKeeper:
                 working_history,
                 max_new_tokens=self.max_new_tokens if attempt == 0 else self.continuation_tokens,
                 do_sample=True,
-                temperature=0.7,
-                top_p=0.9
+                temperature=0.3,
+                top_p=0.8
             )
 
             chunk = self._extract_assistant_content(outputs)
