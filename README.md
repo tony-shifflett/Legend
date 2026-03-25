@@ -1,5 +1,4 @@
-```mermaid 
-
+```mermaid
 graph TD
     subgraph "Persistent Storage (The Shelf)"
         A[(ChromaDB: './chroma_db')]
@@ -20,12 +19,11 @@ graph TD
 
     subgraph "The Current Limitation"
         F[New Character/Homebrew] -.->|Context Only| D
-        D -.X|NOT SAVED| A
+        D -.->|NOT SAVED| A
     end
 
     E --> Interface([Gradio UI])
 
     style D fill:#f9f,stroke:#333,stroke-width:2px
     style B fill:#bbf,stroke:#333,stroke-width:2px
-
-    ```
+```
