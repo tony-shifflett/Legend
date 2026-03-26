@@ -1,8 +1,6 @@
 import os
-from typing import List
+import re
 import chromadb
-# We keep the import just in case, but we won't force it in __init__
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 class LoreLibrarian:
     def __init__(self, db_path: str = None):
@@ -50,10 +48,63 @@ class LoreLibrarian:
             print(f"Raw Error: {e}")
             raise e
 
+        # 5. Retrieval quality controls (tune if needed)
+        # For cosine distance in Chroma, lower is better.
+        self.distance_threshold = 1.0
+        self.min_keyword_overlap = 1
+        self.max_candidates = 8
+
+    def _tokenize(self, text: str) -> set:
+        return set(re.findall(r"[a-zA-Z][a-zA-Z0-9'-]+", (text or "").lower()))
+
+    def _keyword_overlap(self, query: str, doc: str) -> int:
+        query_tokens = self._tokenize(query)
+        doc_tokens = self._tokenize(doc)
+        # Ignore tiny/common tokens to reduce accidental matches
+        query_tokens = {t for t in query_tokens if len(t) > 2}
+        return len(query_tokens & doc_tokens)
+
     def search(self, query: str, n_results: int = 3) -> str:
-        # ChromaDB will use the stored embedding function automatically here
-        results = self.collection.query(query_texts=[query], n_results=n_results)
-        
-        # Safe extraction of documents
-        documents = results.get("documents", [[]])[0]
-        return "\n\n".join(documents) if documents else ""
+        """Return only high-confidence lore snippets.
+
+        Filters candidates by vector distance and keyword overlap to avoid
+        injecting unrelated context that can trigger hallucinations.
+        """
+        if not query or not query.strip():
+            return ""
+
+        # Pull extra candidates, then filter down.
+        results = self.collection.query(
+            query_texts=[query],
+            n_results=max(n_results, self.max_candidates),
+            include=["documents", "distances"]
+        )
+
+        documents = results.get("documents", [[]])[0] or []
+        distances = results.get("distances", [[]])[0] or []
+
+        filtered = []
+        for i, doc in enumerate(documents):
+            if not doc:
+                continue
+
+            distance = distances[i] if i < len(distances) else None
+            overlap = self._keyword_overlap(query, doc)
+
+            distance_ok = (distance is None) or (distance <= self.distance_threshold)
+            overlap_ok = overlap >= self.min_keyword_overlap
+
+            if distance_ok and overlap_ok:
+                filtered.append(doc.strip())
+
+        # Deduplicate while preserving order.
+        deduped = []
+        seen = set()
+        for doc in filtered:
+            key = doc[:200]
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(doc)
+
+        return "\n\n".join(deduped[:n_results]) if deduped else ""
