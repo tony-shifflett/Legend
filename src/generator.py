@@ -82,7 +82,7 @@ class LegendKeeper:
 
         raw_prompt = self.config['personas']['backstory']
         lore_query = vibe if vibe and vibe.strip() else name
-        lore_context = self.librarian.search(lore_query)
+        lore_context = self.librarian.search(lore_query, llm_pipe=self.pipe)
         
         # Hardened guardrail instructions
         guardrail_instructions = (
@@ -106,7 +106,7 @@ class LegendKeeper:
         """Advanced chat loop with context injection and continuation safety."""
         
         # 1. Context Injection (The "Invisible Reminder")
-        lore_context = self.librarian.search(user_input)
+        lore_context = self.librarian.search(user_input, llm_pipe=self.pipe)
         context_note = lore_context if lore_context else "NO_RELIABLE_LORE_MATCH"
         guarded_input = (
             f"[SCRIBE REMINDER: D&D topics only.]\n"
